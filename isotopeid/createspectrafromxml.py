@@ -2,6 +2,7 @@ import os
 import xmlwrapper
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET 
+from scipy.signal import find_peaks
 
 def xmlread(file):
     # A file containing:
@@ -85,8 +86,14 @@ def createspectra(file,counts):
     slash_index = file.rindex('/')+1
     rename_file = file.replace('.n42','')
 
+    #points = find_peaks(counts, height = 600)
+
     #create spectra
     plt.step(x,counts)
+
+    #for i in points[0]:
+    #    plt.scatter(x[i], counts[i])
+
     plt.xlabel('Channel number')
     plt.ylabel('Counts')
     plt.title(rename_file[slash_index:])
@@ -126,3 +133,11 @@ for file in files:
         counts = RadInstrumentData.RadMeasurement.Spectrum.ChannelData.text
         #print(counts)
         createspectra(os.path.join(figure_path,file),counts)
+
+# THOUGHTS
+# eventually probably want to make this a function with inputs of 
+# where data is and where spectra should go  
+#   
+# spectra will need to be analyzed to find and check peaks
+# compare with known peaks
+# and output an isotope   
