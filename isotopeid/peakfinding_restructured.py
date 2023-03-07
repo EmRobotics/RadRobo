@@ -5,9 +5,15 @@ import numpy as np
 from scipy.signal import find_peaks,savgol_filter
       
 class Spectra:
-    def __init__(self, file, counts):
+    def __init__(self, file, counts,compressed):
         self.iso_name = file[file.rindex('/')+1:file.rindex('_')]
-        self.counts = expand_zeros(counts)
+
+        if compressed:
+            self.counts = expand_zeros(counts)
+        else:
+            #self.counts = counts = [float(el) for el in counts.split(" ")[:-1]]
+            self.counts = [float(el) for el in counts.split(" ")[:-1]]
+            #self.counts =  savgol_filter([float(el) for el in counts.split(" ")[:-1]],4,2)
         self.wdt_arr = np.array([max(i,2) for i in np.arange(0,len(self.counts),1)*0.005])
         self.height_vec = find_height(self.counts)
         self.prom = 0.01*max(self.counts)
@@ -56,7 +62,8 @@ def determine_name(iso_name):
     if "heu" in iso_name:
         iso_name = iso_name.replace("heu","u235u-238")
     elif "du" in iso_name:
-        iso_name = iso_name.replace("du","u238")
+        #iso_name = iso_name.replace("du","u238")
+        iso_name = iso_name.replace("du","u235u-238")
     elif "wgpu" in iso_name:
         iso_name = iso_name.replace("wgpu","pu239")
 
@@ -97,6 +104,13 @@ def isotope_peaks(iso_name,isotope_dict):
 def score_isotope(guess_name,true_name):
     score = 0
 
+    #if len(guess_name) > 0:
+    #    return 0
+    #else:
+    #    return 1
+
+
+    #use this for normal spectra
     if len(guess_name) > len(true_name):
         return 1/len(guess_name)
 
@@ -115,65 +129,42 @@ def xray_list(isotopes):
             for i in val['xray'].split(','):
                 xrays = np.append(xrays,float(i))
 
-    #        print('key:',key,'xrays:',xrays)
-#
-    #        xray_bool = False
-    #        for xray in xrays:
-    #            #print("peak:",peak,"xray:",xray,"diff:",abs(xray - peak))
-    #            if abs(xray - peak) < 2:
-    #                #print("here")
-    #                xray_bool = True
-    #                break
-    #print("xray?",xray_bool)
-    #print(xrays)
     return xrays
 
 # Guess isotope based on peaks found
 def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
 
-    peaks = np.array([])
-    prominences = np.array([])
-
-    xrays = xray_list(isotopes)
-
-    for x in range(len(all_peaks)):
-        if not any(abs(xray - all_peaks[x]) < 2 for xray in xrays):
-            peaks = np.append(peaks,all_peaks[x])
-            prominences = np.append(prominences,all_prominences[x])
-        #if not xray_check(all_peaks[x],isotopes):
-        #    peaks = np.append(peaks,all_peaks[x])
-        #    prominences = np.append(prominences,all_prominences[x])
-
-    #print(all_peaks)
-    #print(peaks)
-
-    #for key,val in isotopes.items():
-#
-    #    if val['xray']:
-#
-    #        xrays = np.array([float(i) for i in val['xray'].split(',')])
-#
-    #        for x in range(len(all_peaks)):
-#
-    #            xray_bool = False
-#
-    #            for xray in xrays:
-    #                if abs(xray - all_peaks[x]) < 2:
-    #                    xray_bool = True
-#
-    #            if not xray_bool:
-    #                peaks = np.append(peaks,all_peaks[x])
-    #                prominences = np.append(prominences,all_prominences[x])
-
-
     score = np.zeros(len(isotopes))
     name = np.array([])
     index = 0
-
-    #print(peaks)
-    #print(prominences)
+    sim_peaks = [93, 186]
 
     for key,val in isotopes.items():
+
+        score_boost_og = 1
+        if val['xray']:
+            xrays = np.array([])
+
+            for i in val['xray'].split(','):
+                xrays = np.append(xrays,float(i))
+
+            peaks = np.array([])
+            prominences = np.array([])
+
+            for x in range(len(all_peaks)):
+                if not any(abs(xray - all_peaks[x]) < 2 for xray in xrays): #or abs(all_peaks[x] -94)<0.05:
+                    peaks = np.append(peaks,all_peaks[x])
+                    prominences = np.append(prominences,all_prominences[x])
+                else:
+                    score_boost_og *= 2 #2?
+        else:
+            peaks = all_peaks
+            prominences = all_prominences 
+
+
+        #if "u" in key:
+        #print(key,score_boost_og)
+
         name = np.append(name,key)
 
         iso_peaks = np.array([float(i) for i in val['peaks'].split(',')])
@@ -198,7 +189,7 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
                 peak = sorted_peaks[i]
                 iso_peak = sorted_iso_peaks[j]
 
-                if abs(peak - iso_peak) < 2:
+                if abs(peak - iso_peak) < 2.5:
 
                     dist_factor = 1-(abs(peak - iso_peak)/2)*0.1
 
@@ -207,46 +198,54 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
 
                     prom_peak_frac = sorted_prom_peaks[i]/max(sorted_prom_peaks)
 
-                    score_boost = 1
+                    score_boost = min(5,score_boost_og) #1 #score_boost_og
                     if abs(prom_peak_frac - iso_peak_prob_frac) < .25:
-                        score_boost = 10
+                        score_boost *= 10
                     elif abs(prom_peak_frac - iso_peak_prob_frac) < .35:
-                        score_boost = 3  
-                    elif abs(prom_peak_frac - iso_peak_prob_frac) < .45:
-                        score_boost = 2      
+                        score_boost *= 8   #5 is working
+                    elif abs(prom_peak_frac - iso_peak_prob_frac) < .38:
+                        score_boost *= 5 
+                    elif abs(prom_peak_frac - iso_peak_prob_frac) < .46:
+                        score_boost *= 2      
 
                     if abs(i - j) < 3:
                         score_boost *= 10
 
-                    if prom_peak_frac > .6:
+                    if prom_peak_frac > .65: #.6 is working
                         score_boost *= 5
+                    elif prom_peak_frac > .6 :#and score_boost < 20: 
+                        score_boost += 30
 
                     if iso_peak_prob_frac > .4 and iso_peak_prob_frac < 1:
                         score_boost *= 6
 
-                    if peak < 100:
-                        score_boost *= 0.1    
+                    if peak < 90:
+                        score_boost *= 0.1
+                    elif peak < 100:
+                        score_boost *= 0.6 
 
-                    # for u-238
-                    #if abs(peak - 1001) < 3:
-                    #     score_boost *= 10000   
+                    if i == 1 and prom_peak_frac > 0.5:
+                        score_boost *= 10
+                    elif i == 1 and prom_peak_frac > 0.3:
+                        score_boost *= 2
 
+                    #if i == 0 and abs(peak - 93) < 2:
+                    #    print(sorted_prom_peaks[0]/sorted_prom_peaks[1] )
 
+                    if abs(prom_peak_frac - iso_peak_prob_frac) < 0.1 and any(abs(peak-pk)<2 for pk in sim_peaks) and len(sorted_prom_peaks)>1:
+                        if sorted_prom_peaks[0]/sorted_prom_peaks[1] < 5:
+                            score_boost *= 0.06 #0.1 was working
+                        #print(i,iso_name,"isotope: ", key, sorted_prom_peaks[0]/sorted_prom_peaks[1])
 
-                    # DIDN'T WORK
-                    #if iso_peak_prob_frac > 0.99:
-                    #    score_boost *= 5    
-                    #if i < 2 and j < 2:
-                    #    score_boost *= 2
-                    #if sorted_prom_peaks[i] > 13500:
-                    #    score_boost *= 5     
+                    if abs(peak - 186) < 3 and iso_peak_prob_frac > 0.9 and prom_peak_frac < 0.25:
+                         score_boost *= 10
 
 
 
                     #scr = score_boost*sorted_prom_peaks[i]/max(sorted_prom_peaks)*dist_factor*iso_peak_prob_frac #*sorted_prom_peaks[i]
                     #score_boost*dist_factor*iso_peak_prob_frac*100/(i+1)/(j+1)
 
-                    scr = score_boost*dist_factor*iso_peak_prob_frac 
+                    scr = score_boost*dist_factor*iso_peak_prob_frac
                     score[index] += scr 
                      
                     
@@ -263,7 +262,13 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
     #        score[np.where(name == "92-u-238")] += 1000
 
     #ind = np.where(score > 0.25*np.amax(score))
-    ind = np.where(score > 0.6*np.amax(score))
+    if np.amax(score) > 40:
+        ind = np.where(score > 0.4*np.amax(score))
+    else:
+        ind = []
+
+    # newest is 0.4 is working
+    #0.6 is working
 
     guess_name = []
     for i in range(len(name[ind])):
@@ -314,21 +319,18 @@ def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,gu
     plt.clf()
 
 # Create class and plot spectra
-def isotopeID(file,counts,isotopes):
+def isotopeID(file,counts,isotopes,compressed):
     
-    spect = Spectra(file,counts)
+    spect = Spectra(file,counts,compressed)
    
-    #[prom_peaks,prom_peaks_dict] = find_peaks(spect.counts,prominence=0.45*max(counts),threshold=2,width=wdt_arr,rel_height=0.6,height=height_vec,distance=4)
-    #[peaks,peaks_dict] = find_peaks(counts,prominence=0.05*max(counts),width=wdt_arr,rel_height=0.6,height=height_vec,distance=4)
     [peaks,peaks_dict] = find_peaks(spect.counts,prominence=spect.prom,width=spect.wdt_arr,rel_height=0.6,height=spect.height_vec,distance=4)
 
-    #print(peaks)
-
-    true_peaks,branching_ratios = isotope_peaks(spect.iso_name,isotopes)
+    #true_peaks,branching_ratios = isotope_peaks(spect.iso_name,isotopes)
 
     score,final_peaks,guess = determine_isotope(peaks,peaks_dict['prominences'],isotopes,spect.iso_name)
 
-    plot_spectra(file,spect.counts,final_peaks,true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim= 
+    #plot_spectra(file,spect.counts,final_peaks,true_peaks=true_peaks,guess_nm=guess)
+    plot_spectra(file,spect.counts,final_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim= 
 
     return score
 
@@ -339,6 +341,8 @@ parent_path = "/Users/emeline/Documents/NERS 491"
 # Define path where xml files can be found
 #path = "/Users/emeline/Documents/NERS 491/IsotopeID_n42/"
 data = "IsotopeID_n42"
+
+data = "120SecondBkg"
 
 data_path = os.path.join(parent_path, data)
 figure_path = os.path.join(parent_path, "IsotopeID_spectra")
@@ -372,59 +376,30 @@ score = 0
 length = 0
 
 for file in files:
-
-    if "i131WGPU" in file:
-
-    #16 possibilities: am,ba,co,cs137_,cs137DU,du,ga67_,ga67_HEU,heu,i131_,i131WGPU,ra,tc,th,tl,wgpu
-
-    #Correct id:
-    #am,ba,co,cs137_,ra,tc,tl,wgpu,heu,ga67_,ga67_HEU,i131_
-
-    #if file[0:2] in ["am","co","ra","tc","tl","wg","th","he","ga","ba"] or "cs137_" in file or "i131_" in file: #,"du"
-
-
-    #Current correct id:
-    #if file[0:2] in ["am","co","ra","tc","tl","th","he","ba","wg"] or "cs137_" in file or "i131_" in file:
-
-    #work in progress
-    #if file[0:2] in ["ga","du"] or "cs137DU" in file or "i131WGPU" in file:
-
-    # Need to do: 
-    # cs137DU,du,i131WGPU
-    #if "du" in file or "cs137DU" in file or "i131WGPU" in file or "wgpu" in file:
-    #if "i131WGPU" in file or "wgpu" in file or "i131_" in file :
-    #if "cs137DU" in file:
-
+    
+    if "" in file:
         RadInstrumentData = xmlwrapper.xmlread(os.path.join(data_path,file))
-        counts = RadInstrumentData.RadMeasurement.Spectrum.ChannelData.text
-        score += isotopeID(os.path.join(figure_path,file),counts,isotopes)
+
+        if data == "IsotopeID_n42" or "longSpectrum" in file:
+            counts = RadInstrumentData.RadMeasurement.Spectrum.ChannelData.text
+            compressed = True
+        else:
+            counts = RadInstrumentData.Measurement.Spectrum.ChannelData.text
+            compressed = False
+
+
+
+        #try: 
+        #    if (RadInstrumentData.RadMeasurement.Spectrum.ChannelData.Attributes.compressionCode):
+        #        print(RadInstrumentData.RadMeasurement.Spectrum.ChannelData.Attributes)
+        #        compressed = True
+        #        counts = RadInstrumentData.RadMeasurement.Spectrum.ChannelData.text
+        #except KeyError:
+        #    counts = RadInstrumentData.Measurement.Spectrum.ChannelData.text
+
+        score += isotopeID(os.path.join(figure_path,file),counts,isotopes,compressed)
         length += 1
 
 score = score/length
 
 print('You scored ' + str(score*100) + ' %!' + " Out of " + str(length) + " files")
-
-# Current highest score is 85%!
-
-
-
-# i131 and wgpu: look at prominance for 365
-# shileding effect, deu add in other peaks?
-# du: pu has x-rays in similar region, ga has a peak at 183 too -> code doesn't handle x-rays very well
-# x-rays -> x-rays are depressing prominances of peaks that show 238
-# prominence scaling with multiple isotopes doesn't work so well
-# maybe don't really look at peaks below certain energies...? h3d has some nested if statements
-# background spectra -> make sure doesn't id anything in background
-
-# also need to expand to all iso
-
-# bootstrapping -> use measurements with a lot of data, draw from another spectra (with replacement) make subsample spectra
-
-
-
-
-
-# David questions:
-#    iding cs137DU,du,i131WGPU
-#    identidying more peaks and then just filter based on prominences...
-#    thoughts on overall scoring part
