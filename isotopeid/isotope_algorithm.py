@@ -229,6 +229,11 @@ def determine_isotope(all_peaks,all_prominences,isotopes):
                     elif i == 1 and prom_peak_frac > 0.3:
                         score_boost *= 2
 
+                    if sorted_prom_peaks[i] < 25:
+                        score_boost *= 0.001
+                    elif sorted_prom_peaks[i] < 40:
+                        score_boost *= 0.05
+
                     #if i == 0 and abs(peak - 93) < 2:
                     #    print(sorted_prom_peaks[0]/sorted_prom_peaks[1] )
 

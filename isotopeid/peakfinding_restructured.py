@@ -109,17 +109,23 @@ def score_isotope(guess_name,true_name):
     #else:
     #    return 1
 
-
+    
     #use this for normal spectra
-    if len(guess_name) > len(true_name):
-        return 1/len(guess_name)
+    if not true_name[0]=="":
+        if len(guess_name) > len(true_name):
+            return 1/len(guess_name)
 
-    for i in range(len(true_name)):
-        for j in range(len(guess_name)):
-            if true_name[i] == guess_name[j]:
-                score += 1        
+        for i in range(len(true_name)):
+            for j in range(len(guess_name)):
+                if true_name[i] == guess_name[j]:
+                    score += 1        
 
-    return score/len(true_name) #fraction of 1
+        return score/len(true_name) #fraction of 1
+    else:
+        if len(guess_name) > 0:
+            return 0
+        else:
+            return 1
 
 def xray_list(isotopes):
 
@@ -182,6 +188,8 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
         sorted_prom_peaks = np.flip(prominences[sorted_ind_array],0)
 
         #print(sorted_peaks, sorted_prom_peaks)
+        #if any(sorted_prom_peaks > 40):
+        #print(sorted_prom_peaks)
 
         for i in range(len(sorted_peaks)):
             for j in range(len(sorted_iso_peaks)):
@@ -228,6 +236,21 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
                         score_boost *= 10
                     elif i == 1 and prom_peak_frac > 0.3:
                         score_boost *= 2
+
+                    # FOR BACKGROUND
+                    #if sorted_prom_peaks[i] < 40:
+                    # 40 99% accuracy for background, 94% accuracy for isotopes
+                    # 25 100% accuracy for isotopes
+                    # 27 99% accuracy for isotopes
+                    if sorted_prom_peaks[i] < 25:
+                        score_boost *= 0.001
+                    elif sorted_prom_peaks[i] < 40:
+                        score_boost *= 0.05
+
+                    #if sorted_prom_peaks[i] < 45:
+                    #    score_boost *= 0.0001
+                    #maybe do something where if no peaks are greater than 20 than just... idk
+
 
                     #if i == 0 and abs(peak - 93) < 2:
                     #    print(sorted_prom_peaks[0]/sorted_prom_peaks[1] )
@@ -340,7 +363,7 @@ parent_path = "/Users/emeline/Documents/NERS 491"
 
 # Define path where xml files can be found
 #path = "/Users/emeline/Documents/NERS 491/IsotopeID_n42/"
-data = "IsotopeID_n42"
+#data = "IsotopeID_n42"
 
 data = "120SecondBkg"
 
