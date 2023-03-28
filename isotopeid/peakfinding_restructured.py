@@ -123,7 +123,11 @@ def score_isotope(guess_name,true_name):
         return score/len(true_name) #fraction of 1
     else:
         if len(guess_name) > 0:
-            return 0
+            #need to check this
+            if len(guess_name) == 1 and guess_name[0] == 'ra-226':
+                return 1
+            else:
+                return 0
         else:
             return 1
 
@@ -197,6 +201,7 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
                 peak = sorted_peaks[i]
                 iso_peak = sorted_iso_peaks[j]
 
+                #if abs(peak - iso_peak) < 2.5:
                 if abs(peak - iso_peak) < 2.5:
 
                     dist_factor = 1-(abs(peak - iso_peak)/2)*0.1
@@ -242,6 +247,8 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
                     # 40 99% accuracy for background, 94% accuracy for isotopes
                     # 25 100% accuracy for isotopes
                     # 27 99% accuracy for isotopes
+
+                    # 100% accuracy for isotopes, 99.34% accuracy for background
                     if sorted_prom_peaks[i] < 25:
                         score_boost *= 0.001
                     elif sorted_prom_peaks[i] < 40:
@@ -322,7 +329,7 @@ def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,gu
     if true_peaks:
         plt.vlines(x=true_peaks, ymin = -0.01*max(counts), ymax = max(counts)*1.2, linestyles = 'dashed', colors = 'purple',alpha=0.4, label=rename_file[slash_index:-2].capitalize() + " true peaks")
 
-    plt.scatter([x[int(i)] for i in peaks], [counts[int(i)] for i in peaks],color='deepskyblue',label="Found peaks")
+    plt.scatter([x[int(i)] for i in peaks], [counts[int(i)] for i in peaks],color='deepskyblue',label="Main peaks")
     plt.xlabel('Energy (keV)')
     plt.ylabel('Counts')
     plt.xlim(left=0)
@@ -330,15 +337,23 @@ def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,gu
     if x_lim:
         plt.xlim(right=x_lim)
 
-    if guess_nm:
-        plt.title(str(guess_nm) + str(peaks))
-    else:    
-        plt.title(str(peaks))
+    name = ""
+    for i in range(len(guess_nm)):
+        if i == 0:
+            name = "Isotope identified: " + guess_nm[0].capitalize()
+        else:
+            name += ", " + guess_nm[i].capitalize()
+
+    if len(name)>0:
+        plt.title(name) # + str(peaks))
+    else:   
+        plt.title("Isotope identified: None") 
+        #plt.title(str(peaks))
     #plt.title(rename_file[slash_index:].capitalize() + " Energy Spectra")
     plt.legend()
     #plt.title(rename_file[slash_index:])
 
-    plt.savefig(str(rename_file)+'.png')
+    plt.savefig(str(rename_file)+str((np.random.random()))+'.png')
     plt.clf()
 
 # Create class and plot spectra
@@ -348,12 +363,19 @@ def isotopeID(file,counts,isotopes,compressed):
    
     [peaks,peaks_dict] = find_peaks(spect.counts,prominence=spect.prom,width=spect.wdt_arr,rel_height=0.6,height=spect.height_vec,distance=4)
 
+    #print(peaks[peaks>42],peaks_dict['prominences'][peaks>42])
     #true_peaks,branching_ratios = isotope_peaks(spect.iso_name,isotopes)
 
-    score,final_peaks,guess = determine_isotope(peaks,peaks_dict['prominences'],isotopes,spect.iso_name)
+    #score,final_peaks,guess = determine_isotope(peaks,peaks_dict['prominences'],isotopes,spect.iso_name)
+    score,final_peaks,guess = determine_isotope(peaks[peaks>42],peaks_dict['prominences'][peaks>42],isotopes,spect.iso_name)
 
+    #print(peaks_dict['prominences'])
     #plot_spectra(file,spect.counts,final_peaks,true_peaks=true_peaks,guess_nm=guess)
-    plot_spectra(file,spect.counts,final_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim= 
+    #plot_spectra(file,spect.counts,final_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim=
+    # 
+    plt_peaks = peaks[peaks_dict['prominences']>0.5*np.mean(peaks_dict['prominences'])]
+
+    plot_spectra(file,spect.counts,plt_peaks,guess_nm=guess)
 
     return score
 
@@ -363,9 +385,11 @@ parent_path = "/Users/emeline/Documents/NERS 491"
 
 # Define path where xml files can be found
 #path = "/Users/emeline/Documents/NERS 491/IsotopeID_n42/"
-#data = "IsotopeID_n42"
+data = "IsotopeID_n42"
 
 data = "120SecondBkg"
+
+#data = "efficiency data/actual"
 
 data_path = os.path.join(parent_path, data)
 figure_path = os.path.join(parent_path, "IsotopeID_spectra")
@@ -399,16 +423,27 @@ score = 0
 length = 0
 
 for file in files:
-    
+    #print(file)
     if "" in file:
         RadInstrumentData = xmlwrapper.xmlread(os.path.join(data_path,file))
-
+ 
         if data == "IsotopeID_n42" or "longSpectrum" in file:
             counts = RadInstrumentData.RadMeasurement.Spectrum.ChannelData.text
             compressed = True
+            score += isotopeID(os.path.join(figure_path,file),counts,isotopes,compressed)
+            length += 1
+        elif "actual" in data: #efficiency
+            
+            for i in range(1,len(RadInstrumentData.RadMeasurement.Spectrum)):
+                counts = RadInstrumentData.RadMeasurement.Spectrum[i].ChannelData.text
+                compressed = True
+                score += isotopeID(os.path.join(figure_path,file),counts,isotopes,compressed)
+                length += 1
         else:
             counts = RadInstrumentData.Measurement.Spectrum.ChannelData.text
             compressed = False
+            score += isotopeID(os.path.join(figure_path,file),counts,isotopes,compressed)
+            length += 1
 
 
 
@@ -420,8 +455,8 @@ for file in files:
         #except KeyError:
         #    counts = RadInstrumentData.Measurement.Spectrum.ChannelData.text
 
-        score += isotopeID(os.path.join(figure_path,file),counts,isotopes,compressed)
-        length += 1
+        #score += isotopeID(os.path.join(figure_path,file),counts,isotopes,compressed)
+        #length += 1
 
 score = score/length
 

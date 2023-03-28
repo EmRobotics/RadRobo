@@ -265,7 +265,7 @@ def determine_isotope(all_peaks,all_prominences,isotopes):
     # newest is 0.4 is working
     #0.6 is working
 
-    #guess_name = []
+    guess_name = ""
     #for i in range(len(name[ind])):
     #    guess_name.append(name[ind][i][3:])
 
@@ -320,7 +320,7 @@ def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,gu
     #get title
     plt.title("Isotope ID: "+guess_nm)
 
-    plt.savefig(str(rename_file)+'.png')
+    plt.savefig(str(rename_file)+str(np.random.random())+'.png')
     plt.clf()
 
 # Create class and plot spectra
@@ -332,17 +332,24 @@ def isotopeID(file,counts,isotopes,compressed):
 
     #true_peaks,branching_ratios = isotope_peaks(spect.iso_name,isotopes)
 
-    final_peaks,guess = determine_isotope(peaks,peaks_dict['prominences'],isotopes)
+    final_peaks,guess = determine_isotope(peaks[peaks>42],peaks_dict['prominences'][peaks>42],isotopes)
+
+    #print(peaks_dict['prominences'])
+    #plot_spectra(file,spect.counts,final_peaks,true_peaks=true_peaks,guess_nm=guess)
+    #plot_spectra(file,spect.counts,final_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim=
+    # 
+    plt_peaks = peaks[peaks_dict['prominences']>0.5*np.mean(peaks_dict['prominences'])]
 
     #plot_spectra(file,spect.counts,final_peaks,true_peaks=true_peaks,guess_nm=guess)
-    plot_spectra(file,spect.counts,final_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim= 
+    plot_spectra(file,spect.counts,plt_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim= 
 
     #return score
 
 ##### ----------------------------- CHANGE CODE HERE ----------------------------- #####
 
 # INCLUDE FILE PATH HERE: MUST BE .n42 FILE!
-file_path = "/Users/emeline/Documents/NERS 491/Testing/ga67HEU_4.n42"
+#file_path = "/Users/emeline/Documents/NERS 491/Testing/ga67HEU_4.n42"
+file_path = "/Users/emeline/Documents/NERS 491/efficiency data/actual/Cs137_90.n42"
 
 # INCLUDE PATH TO isotopes_xray.txt HERE
 isotopes_xray_path = "/Users/emeline/Dev/RadRobo/isotopeid/isotopes_xray.txt"
@@ -366,9 +373,13 @@ f.close()
 if ".n42" in file_path and os.path.exists(file_path):
 
     RadInstrumentData = xmlwrapper.xmlread(file_path)
-    counts = RadInstrumentData.RadMeasurement.Spectrum.ChannelData.text
-    compressed = True
-    isotopeID(file_path,counts,isotopes,compressed)
+
+    for i in range(1,len(RadInstrumentData.RadMeasurement.Spectrum)):
+
+
+        counts = RadInstrumentData.RadMeasurement.Spectrum[i].ChannelData.text
+        compressed = True
+        isotopeID(file_path,counts,isotopes,compressed)
 
 else:
     print("Error: Incorrect file type!")
