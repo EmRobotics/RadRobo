@@ -278,7 +278,8 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
                     scr = score_boost*dist_factor*iso_peak_prob_frac
                     score[index] += scr 
                      
-                    
+                    print("peak:",peak,"iso-peak:",iso_peak,"iso:",key)
+
                     #print("peak:",peak,"iso-peak:",iso_peak,"iso:",key)
                     #print("i:",i,"j:",j,"dist:",dist_factor,"prob frac:",iso_peak_prob_frac)
                     #print("prob peak:",iso_peak_prob,"prom peak:",sorted_prom_peaks[i],"prom frac:",sorted_prom_peaks[i]/max(sorted_prom_peaks))
@@ -306,14 +307,20 @@ def determine_isotope(all_peaks,all_prominences,isotopes,iso_name):
 
     true_name = determine_name(iso_name)
 
-    print("The isotope identified: ",guess_name," true isotope: ",true_name," score: ",str(np.round(score[ind])))
+    if len(guess_name) > 0:
+        print("The isotope identified: ",guess_name," true isotope: ",true_name," score: ",str(np.round(score[ind])))
 
     scored_iso = score_isotope(guess_name,true_name)
+
+    print(peaks)
 
     return scored_iso, peaks,guess_name
 
 # Plot spectra
 def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,guess_nm=None):
+
+
+    print(peaks)
 
     slash_index = file.rindex('/')+1
     rename_file = file.replace('.n42','')
@@ -334,6 +341,7 @@ def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,gu
     plt.ylabel('Counts')
     plt.xlim(left=0)
 
+    #x_lim = 800
     if x_lim:
         plt.xlim(right=x_lim)
 
@@ -346,12 +354,21 @@ def plot_spectra(file,counts,peaks,true_peaks=None,height_vec=None,x_lim=None,gu
 
     if len(name)>0:
         plt.title(name) # + str(peaks))
+
+        #plt.title("Cs-137")
     else:   
         plt.title("Isotope identified: None") 
         #plt.title(str(peaks))
     #plt.title(rename_file[slash_index:].capitalize() + " Energy Spectra")
+    
     plt.legend()
+    
     #plt.title(rename_file[slash_index:])
+
+    #plt.rc('font', size=22) 
+    #plt.rc('axes', labelsize=18)    # fontsize of the x and y labels
+    #plt.rc('xtick', labelsize=20)    # fontsize of the tick labels
+    #plt.rc('ytick', labelsize=20)    # fontsize of the tick labels
 
     plt.savefig(str(rename_file)+str((np.random.random()))+'.png')
     plt.clf()
@@ -373,7 +390,7 @@ def isotopeID(file,counts,isotopes,compressed):
     #plot_spectra(file,spect.counts,final_peaks,true_peaks=true_peaks,guess_nm=guess)
     #plot_spectra(file,spect.counts,final_peaks,guess_nm=guess) #true_peaks=true_peaks,guess_nm=guess) #height=counts.height_vec,x_lim=
     # 
-    plt_peaks = peaks[peaks_dict['prominences']>0.5*np.mean(peaks_dict['prominences'])]
+    plt_peaks = peaks[peaks_dict['prominences']>0.45*np.mean(peaks_dict['prominences'])]
 
     plot_spectra(file,spect.counts,plt_peaks,guess_nm=guess)
 
@@ -387,7 +404,7 @@ parent_path = "/Users/emeline/Documents/NERS 491"
 #path = "/Users/emeline/Documents/NERS 491/IsotopeID_n42/"
 data = "IsotopeID_n42"
 
-data = "120SecondBkg"
+#data = "120SecondBkg"
 
 #data = "efficiency data/actual"
 
@@ -423,8 +440,19 @@ score = 0
 length = 0
 
 for file in files:
+
+    #with open(os.path.join(data_path,file)) as reader:
+    #    data = reader.readlines()
+    #    if data[1].count("xmlns") > 1:
+    #        data[1] = "<RadInstrumentData xmlns='http://physics.nist.gov/N42/2011/N42'>\n"
+
+    # and write everything back
+    #with open(os.path.join(data_path,file), 'w') as writer:
+    #    writer.writelines(data)
+
     #print(file)
     if "" in file:
+        #print(file)
         RadInstrumentData = xmlwrapper.xmlread(os.path.join(data_path,file))
  
         if data == "IsotopeID_n42" or "longSpectrum" in file:

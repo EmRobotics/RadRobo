@@ -349,7 +349,8 @@ def isotopeID(file,counts,isotopes,compressed):
 
 # INCLUDE FILE PATH HERE: MUST BE .n42 FILE!
 #file_path = "/Users/emeline/Documents/NERS 491/Testing/ga67HEU_4.n42"
-file_path = "/Users/emeline/Documents/NERS 491/efficiency data/actual/Cs137_90.n42"
+#file_path = "/Users/emeline/Documents/NERS 491/efficiency data/actual/Cs137_90.n42"
+file_path = "/Users/emeline/Documents/NERS 491/efficiency data/actual/Cs137_march31_test2_detector.n42"
 
 # INCLUDE PATH TO isotopes_xray.txt HERE
 isotopes_xray_path = "/Users/emeline/Dev/RadRobo/isotopeid/isotopes_xray.txt"
@@ -371,6 +372,15 @@ with open(isotopes_xray_path) as f:
 f.close()
 
 if ".n42" in file_path and os.path.exists(file_path):
+
+    with open(file_path) as reader:
+        data = reader.readlines()
+        if data[1].count("xmlns") > 1:
+            data[1] = "<RadInstrumentData xmlns='http://physics.nist.gov/N42/2011/N42'>\n"
+
+    # and write everything back
+    with open(file_path, 'w') as file:
+        file.writelines(data)
 
     RadInstrumentData = xmlwrapper.xmlread(file_path)
 
